@@ -1,0 +1,22 @@
+# From core
+
+vendor -f "github.com/pki-io/docopt.go" -r "github.com/docopt/docopt-go"
+vendor -f "github.com/pki-io/seelog" -r "github.com/cihub/seelog"
+vendor -f "github.com/pki-io/toml" -r "github.com/BurntSushi/toml"
+vendor -f "github.com/pki-io/go-homedir" -r "github.com/mitchellh/go-homedir"
+vendor -f "github.com/pki-io/ecies" -r "github.com/obscuren/ecies"
+
+vendor -f "github.com/pki-io/gojsonpointer" -r "github.com/xeipuuv/gojsonpointer"
+vendor -f "github.com/pki-io/gojsonreference" -r "github.com/xeipuuv/gojsonreference"
+vendor -f "github.com/pki-io/gojsonschema" -r "github.com/xeipuuv/gojsonschema"
+
+vendor --clone -f "github.com/pki-io/crypto" -r "golang.org/x/crypto"
+vendor --build -f "github.com/pki-io/crypto" -r "golang.org/x/crypto" -p "pbkdf2"
+
+# Core
+vendor --clone -r "github.com/pki-io/core" -g "checkout development"
+if [[ "${FDM_ENV:-}" != "DEV" ]]; then
+  for d in config crypto document entity fs index node x509; do
+    vendor --build -r "github.com/pki-io/core" -p "$d"
+  done
+fi
