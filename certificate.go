@@ -191,6 +191,7 @@ func (cont *CertificateController) New(params *CertificateParams) (*x509.Certifi
 	var ca *x509.CA
 
 	if *params.CertFile == "" && *params.KeyFile == "" {
+		cert.Data.Body.KeyType = *params.KeyType
 		cont.env.logger.Debug("generating certificate and key")
 		if *params.Ca == "" {
 			if err := cert.Generate(nil, &subject); err != nil {

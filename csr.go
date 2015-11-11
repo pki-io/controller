@@ -183,6 +183,7 @@ func (cont *CSRController) New(params *CSRParams) (*x509.CSR, error) {
 	csr.Data.Body.Name = *params.Name
 
 	if *params.CsrFile == "" && *params.KeyFile == "" {
+		csr.Data.Body.KeyType = *params.KeyType
 		cont.env.logger.Debug("generating CSR and key")
 		csr.Generate(&subject)
 	} else {
