@@ -103,7 +103,7 @@ func (cont *OrgController) CreateOrg(name string) error {
 	return nil
 }
 
-func (cont *OrgController) GetOrgAdmins() ([]*entity.Entity, error) {
+func (cont *OrgController) GetOrgAdmins() ([]entity.Encrypter, error) {
 	cont.env.logger.Debug("getting org admins")
 
 	index, err := cont.GetIndex()
@@ -116,7 +116,7 @@ func (cont *OrgController) GetOrgAdmins() ([]*entity.Entity, error) {
 		return nil, err
 	}
 
-	adminEntities := make([]*entity.Entity, 0, 0)
+	adminEntities := make([]entity.Encrypter, 0, 0)
 	for _, id := range adminIds {
 		admin, err := cont.env.controllers.admin.GetAdmin(id)
 		if err != nil {
@@ -390,6 +390,19 @@ func (cont *OrgController) SignCSR(node *node.Node, caId, tag string) error {
 
 	cont.env.logger.Debug("pushing certificate to node")
 	if err := cont.env.api.PushIncoming(node.Data.Body.Id, "certs", certContainer.Dump()); err != nil {
+		return err
+	}
+
+	index, err := cont.GetIndex()
+	if err != nil {
+		return err
+	}
+
+	if err := index.AddCertTags(cert.Data.Body.Id, cert.Data.Body.Tags); err != nil {
+		return err
+	}
+
+	if err := cont.SaveIndex(index); err != nil {
 		return err
 	}
 
