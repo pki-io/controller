@@ -1,14 +1,18 @@
-// ThreatSpec package controller
 package controller
 
 import (
+	"bytes"
 	"crypto/x509/pkix"
 	"fmt"
 	"github.com/pki-io/core/config"
 	"github.com/pki-io/core/document"
 	"github.com/pki-io/core/index"
 	"github.com/pki-io/core/node"
+	"github.com/pki-io/core/ssh"
 	"github.com/pki-io/core/x509"
+	"os"
+	"os/exec"
+	"strings"
 )
 
 const (
@@ -77,25 +81,25 @@ func (cont *NodeController) CreateIndex() (*index.NodeIndex, error) {
 	}
 
 	index.Data.Body.Id = x509.NewID()
-	cont.env.logger.Debug("created index with id '%s'", index.Id())
+	cont.env.logger.Debugf("created index with id '%s'", index.Id())
 
 	cont.env.logger.Trace("returning index")
 	return index, nil
 }
 
 func (cont *NodeController) SaveIndex(index *index.NodeIndex) error {
-	cont.env.logger.Debug("saving index")
-	cont.env.logger.Tracef("received inded with id '%s'", index.Data.Body.Id)
-	org := cont.env.controllers.org.org
 
-	cont.env.logger.Debug("encrypting and signing index for org")
-	encryptedIndexContainer, err := org.EncryptThenSignString(index.Dump(), nil)
+	cont.env.logger.Debug("saving index")
+	cont.env.logger.Tracef("received index with id '%s'", index.Data.Body.Id)
+
+	cont.env.logger.Debug("encrypting and signing index for node")
+	encryptedIndexContainer, err := cont.node.EncryptThenSignString(index.Dump(), nil)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("sending index to org")
-	if err := cont.env.api.SendPrivate(org.Id(), index.Data.Body.Id, encryptedIndexContainer.Dump()); err != nil {
+	cont.env.logger.Debug("sending index")
+	if err := cont.env.api.SendPrivate(cont.node.Id(), index.Data.Body.Id, encryptedIndexContainer.Dump()); err != nil {
 		return err
 	}
 
@@ -199,6 +203,18 @@ func (cont *NodeController) GetNode(name string) (*node.Node, error) {
 	return n, nil
 }
 
+func (cont *NodeController) SaveNode() error {
+	cont.env.logger.Debug("saving node")
+	id := cont.node.Data.Body.Id
+
+	cont.env.logger.Debugf("saving private node '%s' to home", id)
+	if err := cont.env.fs.home.Write(id, cont.node.Dump()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (cont *NodeController) ProcessNextCert() error {
 	cont.env.logger.Debug("processing next certificate")
 
@@ -263,19 +279,6 @@ func (cont *NodeController) ProcessNextCert() error {
 
 	cont.env.logger.Debug("saving encrypted certificate for node")
 	if err := cont.env.api.SendPrivate(cont.node.Data.Body.Id, cert.Data.Body.Id, updatedCertContainer.Dump()); err != nil {
-		return err
-	}
-
-	index, err := cont.env.controllers.org.GetIndex()
-	if err != nil {
-		return err
-	}
-
-	if err := index.AddCertTags(cert.Data.Body.Id, cert.Data.Body.Tags); err != nil {
-		return err
-	}
-
-	if err := cont.env.controllers.org.SaveIndex(index); err != nil {
 		return err
 	}
 
@@ -372,16 +375,56 @@ func (cont *NodeController) NewCSR() error {
 	return nil
 }
 
-func (cont *NodeController) New(params *NodeParams) (*node.Node, error) {
-	cont.env.logger.Debug("creating new new")
-	cont.env.logger.Tracef("received params: %s", params)
-	var err error
+func (cont *NodeController) Init(params *NodeParams) (*document.Container, error) {
+
+	cont.env.logger.Debug("initialising new node")
 
 	if err := params.ValidateName(true); err != nil {
 		return nil, err
 	}
 
-	if err := cont.env.LoadAdminEnv(); err != nil {
+	if err := params.ValidateOrgId(true); err != nil {
+		return nil, err
+	}
+
+	if err := cont.env.LoadLocalFs(); err != nil {
+		return nil, err
+	}
+
+	if err := cont.env.LoadHomeFs(); err != nil {
+		return nil, err
+	}
+
+	cont.env.logger.Debugf("checking whether org directory '%s' exists", *params.OrgId)
+	exists, err := cont.env.fs.local.Exists(*params.OrgId)
+	if err != nil {
+		return nil, err
+	}
+
+	if exists {
+		return nil, fmt.Errorf("org directory '%s' already exists", *params.OrgId)
+	}
+
+	if err := cont.LoadConfig(); err != nil {
+		return nil, err
+	}
+
+	if cont.config.OrgExists(*params.OrgId) {
+		return nil, fmt.Errorf("org already exists: %s", *params.OrgId)
+	}
+
+	cont.env.logger.Debugf("creating org directory '%s'", *params.OrgId)
+	if err := cont.env.fs.local.CreateDirectory(*params.OrgId); err != nil {
+		return nil, err
+	}
+
+	// Make all further fs calls relative to the Org
+	cont.env.logger.Debug("changing to org directory")
+	if err := cont.env.fs.local.ChangeToDirectory(*params.OrgId); err != nil {
+		return nil, err
+	}
+
+	if err := cont.env.LoadAPI(); err != nil {
 		return nil, err
 	}
 
@@ -390,8 +433,7 @@ func (cont *NodeController) New(params *NodeParams) (*node.Node, error) {
 		return nil, err
 	}
 
-	cont.env.logger.Debugf("sending registration to org with pairing id '%s'", *params.PairingId)
-	if err := cont.SecureSendPrivateToOrg(*params.PairingId, *params.PairingKey); err != nil {
+	if err := cont.SaveNode(); err != nil {
 		return nil, err
 	}
 
@@ -400,11 +442,7 @@ func (cont *NodeController) New(params *NodeParams) (*node.Node, error) {
 		return nil, err
 	}
 
-	if err := cont.LoadConfig(); err != nil {
-		return nil, err
-	}
-
-	cont.config.AddNode(cont.node.Data.Body.Name, cont.node.Data.Body.Id, index.Data.Body.Id)
+	cont.config.AddNode(cont.node.Data.Body.Name, cont.node.Data.Body.Id, index.Data.Body.Id, *params.OrgId)
 
 	if err := cont.SaveConfig(); err != nil {
 		return nil, err
@@ -418,8 +456,130 @@ func (cont *NodeController) New(params *NodeParams) (*node.Node, error) {
 		return nil, err
 	}
 
-	cont.env.logger.Trace("returning node")
+	cont.env.logger.Debug("securing node data")
+	container, err := cont.node.EncryptThenAuthenticateString(cont.node.DumpPublic(), *params.PairingId, *params.PairingKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return container, nil
+}
+
+func (cont *NodeController) CreateLocalNode(name, pairingId, pairingKey string) (*node.Node, error) {
+	var err error
+	cont.node, err = cont.CreateNode(name)
+	if err != nil {
+		return nil, err
+	}
+
+	cont.env.logger.Debugf("sending registration to org with pairing id '%s'", pairingId)
+	if err := cont.SecureSendPrivateToOrg(pairingId, pairingKey); err != nil {
+		return nil, err
+	}
+
+	index, err := cont.CreateIndex()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cont.LoadConfig(); err != nil {
+		return nil, err
+	}
+
+	org := cont.env.controllers.org.org
+	cont.config.AddNode(cont.node.Data.Body.Name, cont.node.Data.Body.Id, index.Data.Body.Id, org.Data.Body.Id)
+
+	if err := cont.SaveConfig(); err != nil {
+		return nil, err
+	}
+
+	if err := cont.CreateCSRs(); err != nil {
+		return nil, err
+	}
+
+	if err := cont.SaveIndex(index); err != nil {
+		return nil, err
+	}
+
 	return cont.node, nil
+}
+
+func (cont *NodeController) CreateRemoteNode(params *NodeParams) (*node.Node, error) {
+	var err error
+
+	s, err := ssh.Connect(*params.Host, strings.Split(*params.SSHOptions, " "))
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.PutFiles("", *params.AgentFile, *params.InstallFile)
+	if err != nil {
+		return nil, err
+	}
+
+	cmd := exec.Command("sh", *params.AgentFile, *params.InstallFile)
+	err = s.ExecuteCmd(cmd, os.Stdin, os.Stdout, os.Stderr)
+	if err != nil {
+		return nil, err
+	}
+
+	var registrationJson bytes.Buffer
+	cmd = exec.Command("pki.io.id", "init", *params.Name, "--org-id", cont.env.controllers.org.org.Id(), "--pairing-id", *params.PairingId, "--pairing-key", *params.PairingKey)
+	err = s.ExecuteCmd(cmd, nil, &registrationJson, os.Stderr)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cont.SecureSendStringToOrg(registrationJson.String(), *params.PairingId, *params.PairingKey); err != nil {
+		return nil, err
+	}
+
+	return nil, nil // TODO
+}
+
+func (cont *NodeController) New(params *NodeParams) (*node.Node, error) {
+	cont.env.logger.Debug("creating new new")
+	cont.env.logger.Tracef("received params: %s", params)
+
+	if err := params.ValidateName(true); err != nil {
+		return nil, err
+	}
+
+	if err := params.ValidateHost(false); err != nil {
+		return nil, err
+	}
+
+	if err := cont.env.LoadAdminEnv(); err != nil {
+		return nil, err
+	}
+
+	if *params.Host == "" {
+		if err := params.ValidatePairingId(true); err != nil {
+			return nil, err
+		}
+
+		if err := params.ValidatePairingKey(true); err != nil {
+			return nil, err
+		}
+
+		return cont.CreateLocalNode(*params.Name, *params.PairingId, *params.PairingKey)
+	} else {
+
+		if err := params.ValidateHost(true); err != nil {
+			return nil, err
+		}
+		if err := params.ValidateAgentFile(true); err != nil {
+			return nil, err
+		}
+		if err := params.ValidateInstallFile(true); err != nil {
+			return nil, err
+		}
+		if err := params.ValidateSSHOptions(false); err != nil {
+			return nil, err
+		}
+
+		return cont.CreateRemoteNode(params)
+	}
 }
 
 func (cont *NodeController) Run(params *NodeParams) error {

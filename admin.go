@@ -166,7 +166,7 @@ func (cont *AdminController) GetAdmin(id string) (*entity.Entity, error) {
 	return admin, nil
 }
 
-func (cont *AdminController) GetAdmins() ([]*entity.Entity, error) {
+func (cont *AdminController) GetAdmins() ([]entity.Encrypter, error) {
 	cont.env.logger.Debug("getting admins")
 
 	index, err := cont.env.controllers.org.GetIndex()
@@ -179,7 +179,7 @@ func (cont *AdminController) GetAdmins() ([]*entity.Entity, error) {
 		return nil, err
 	}
 
-	admins := make([]*entity.Entity, 0, 0)
+	admins := make([]entity.Encrypter, 0, 0)
 	for _, id := range adminIds {
 		admin, err := cont.GetAdmin(id)
 		if err != nil {
