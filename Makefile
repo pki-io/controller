@@ -1,4 +1,4 @@
-DIRS = admin ca certificate csr environment node org pairingkey
+DIRS = admin ca certificate csr environment node org pairingkey ssh
 
 default: get-deps test
 
