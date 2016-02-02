@@ -17,17 +17,17 @@ func NewPairingKey(env *Environment) (*PairingKeyController, error) {
 }
 
 func (cont *PairingKeyController) GeneratePairingKey() (string, string) {
-	cont.env.logger.Debug("generating pairing key")
+	logger.Debug("generating pairing key")
 	id := x509.NewID()
 	key := x509.NewID()
 
-	cont.env.logger.Trace("returning pairing key")
+	logger.Trace("returning pairing key")
 	return id, key
 }
 
 func (cont *PairingKeyController) AddPairingKeyToOrgIndex(id, key, tags string) error {
-	cont.env.logger.Debug("adding pairing key to org index")
-	cont.env.logger.Tracef("received id '%s', key [NOT LOGGED], and tags '%s'", id, tags)
+	logger.Debug("adding pairing key to org index")
+	logger.Tracef("received id '%s', key [NOT LOGGED], and tags '%s'", id, tags)
 
 	orgIndex, err := cont.env.controllers.org.GetIndex()
 	if err != nil {
@@ -43,13 +43,13 @@ func (cont *PairingKeyController) AddPairingKeyToOrgIndex(id, key, tags string) 
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *PairingKeyController) New(params *PairingKeyParams) (string, string, error) {
-	cont.env.logger.Debug("creating new pairing key")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("creating new pairing key")
+	logger.Tracef("received params: %s", params)
 
 	if err := params.ValidateTags(true); err != nil {
 		return "", "", err
@@ -66,13 +66,13 @@ func (cont *PairingKeyController) New(params *PairingKeyParams) (string, string,
 		return "", "", err
 	}
 
-	cont.env.logger.Trace("returning pairing key")
+	logger.Trace("returning pairing key")
 	return id, key, nil
 }
 
 func (cont *PairingKeyController) List(params *PairingKeyParams) ([][]string, error) {
-	cont.env.logger.Debug("listing pairing keys")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("listing pairing keys")
+	logger.Tracef("received params: %s", params)
 
 	keys := [][]string{}
 
@@ -85,18 +85,18 @@ func (cont *PairingKeyController) List(params *PairingKeyParams) ([][]string, er
 		return keys, err
 	}
 
-	cont.env.logger.Flush()
+	logger.Flush()
 	for id, pk := range index.GetPairingKeys() {
 		keys = append(keys, []string{id, strings.Join(pk.Tags[:], ",")})
 	}
 
-	cont.env.logger.Trace("returning keys")
+	logger.Trace("returning keys")
 	return keys, nil
 }
 
 func (cont *PairingKeyController) Show(params *PairingKeyParams) (string, string, string, error) {
-	cont.env.logger.Debug("showing pairing key")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("showing pairing key")
+	logger.Tracef("received params: %s", params)
 
 	if err := params.ValidateID(true); err != nil {
 		return "", "", "", err
@@ -116,13 +116,13 @@ func (cont *PairingKeyController) Show(params *PairingKeyParams) (string, string
 		return "", "", "", err
 	}
 
-	cont.env.logger.Trace("returning pairing key")
+	logger.Trace("returning pairing key")
 	return *params.Id, pk.Key, strings.Join(pk.Tags[:], ","), nil
 }
 
 func (cont *PairingKeyController) Delete(params *PairingKeyParams) error {
-	cont.env.logger.Debug("deleting pairing key")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("deleting pairing key")
+	logger.Tracef("received params: %s", params)
 
 	if err := params.ValidateID(true); err != nil {
 		return err
@@ -150,6 +150,6 @@ func (cont *PairingKeyController) Delete(params *PairingKeyParams) error {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
