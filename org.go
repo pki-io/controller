@@ -29,12 +29,12 @@ func NewOrg(env *Environment) (*OrgController, error) {
 }
 
 func (cont *OrgController) OrgId() string {
-	cont.env.logger.Trace("returning org id")
+	logger.Trace("returning org id")
 	return cont.org.Id()
 }
 
 func (cont *OrgController) LoadConfig() error {
-	cont.env.logger.Debug("loading org config")
+	logger.Debug("loading org config")
 
 	var err error
 	if cont.config == nil {
@@ -44,14 +44,14 @@ func (cont *OrgController) LoadConfig() error {
 		}
 	}
 
-	cont.env.logger.Debugf("checking if local org config '%s' exists", OrgConfigFile)
+	logger.Debugf("checking if local org config '%s' exists", OrgConfigFile)
 	exists, err := cont.env.fs.local.Exists(OrgConfigFile)
 	if err != nil {
 		return err
 	}
 
 	if exists {
-		cont.env.logger.Debug("reading local org config")
+		logger.Debug("reading local org config")
 		orgConfig, err := cont.env.fs.local.Read(OrgConfigFile)
 		if err != nil {
 			return err
@@ -63,12 +63,12 @@ func (cont *OrgController) LoadConfig() error {
 		}
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *OrgController) SaveConfig() error {
-	cont.env.logger.Debug("saving org config")
+	logger.Debug("saving org config")
 
 	cfgString, err := cont.config.Dump()
 	if err != nil {
@@ -83,7 +83,7 @@ func (cont *OrgController) SaveConfig() error {
 }
 
 func (cont *OrgController) CreateOrg(name string) error {
-	cont.env.logger.Debug("creating org")
+	logger.Debug("creating org")
 
 	var err error
 	cont.org, err = entity.New(nil)
@@ -94,17 +94,17 @@ func (cont *OrgController) CreateOrg(name string) error {
 	cont.org.Data.Body.Id = x509.NewID()
 	cont.org.Data.Body.Name = name
 
-	cont.env.logger.Debug("generating keys")
+	logger.Debug("generating keys")
 	if err := cont.org.GenerateKeys(); err != nil {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *OrgController) GetOrgAdmins() ([]entity.Encrypter, error) {
-	cont.env.logger.Debug("getting org admins")
+	logger.Debug("getting org admins")
 
 	index, err := cont.GetIndex()
 	if err != nil {
@@ -125,107 +125,107 @@ func (cont *OrgController) GetOrgAdmins() ([]entity.Encrypter, error) {
 		adminEntities = append(adminEntities, admin)
 	}
 
-	cont.env.logger.Trace("returning admins")
+	logger.Trace("returning admins")
 	return adminEntities, nil
 }
 
 func (cont *OrgController) LoadPublicOrg() error {
-	cont.env.logger.Debug("loading public org")
+	logger.Debug("loading public org")
 
 	orgId := cont.config.Data.Id
 
-	cont.env.logger.Debugf("reading org with id '%s'", orgId)
+	logger.Debugf("reading org with id '%s'", orgId)
 	orgPublicJson, err := cont.env.fs.home.Read(orgId)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("creating new org struct from JSON")
+	logger.Debug("creating new org struct from JSON")
 	cont.org, err = entity.New(orgPublicJson)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *OrgController) SavePublicOrg() error {
-	cont.env.logger.Debug("saving public org")
+	logger.Debug("saving public org")
 
-	cont.env.logger.Debugf("writing public org with id '%s' to home directory", cont.org.Id())
+	logger.Debugf("writing public org with id '%s' to home directory", cont.org.Id())
 	if err := cont.env.fs.home.Write(cont.org.Id(), cont.org.DumpPublic()); err != nil {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *OrgController) SavePrivateOrg() error {
-	cont.env.logger.Debug("saving private org")
+	logger.Debug("saving private org")
 
 	admins, err := cont.GetOrgAdmins()
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("encrypting org for admins")
+	logger.Debug("encrypting org for admins")
 	container, err := cont.org.EncryptThenSignString(cont.org.Dump(), admins)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("sending encrypted org")
+	logger.Debug("sending encrypted org")
 	if err := cont.env.api.SendPrivate(cont.org.Id(), cont.org.Id(), container.Dump()); err != nil {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *OrgController) LoadPrivateOrg() error {
-	cont.env.logger.Debug("loading private org")
+	logger.Debug("loading private org")
 
 	orgId := cont.config.Data.Id
 
-	cont.env.logger.Debugf("loading private org with id '%s'", orgId)
+	logger.Debugf("loading private org with id '%s'", orgId)
 	orgEntity, err := cont.env.api.GetPrivate(orgId, orgId)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("creating new org container")
+	logger.Debug("creating new org container")
 	container, err := document.NewContainer(orgEntity)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("verifying container")
+	logger.Debug("verifying container")
 	err = cont.org.Verify(container)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("decrypting container")
+	logger.Debug("decrypting container")
 	decryptedOrgJson, err := cont.env.controllers.admin.admin.Decrypt(container)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("creating org struct")
+	logger.Debug("creating org struct")
 	cont.org, err = entity.New(decryptedOrgJson)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *OrgController) CreateIndex() (*index.OrgIndex, error) {
-	cont.env.logger.Debug("creating new org index")
+	logger.Debug("creating new org index")
 
 	index, err := index.NewOrg(nil)
 	if err != nil {
@@ -235,71 +235,71 @@ func (cont *OrgController) CreateIndex() (*index.OrgIndex, error) {
 	index.Data.Body.Id = x509.NewID()
 	index.Data.Body.ParentId = cont.org.Id()
 
-	cont.env.logger.Trace("returning index")
+	logger.Trace("returning index")
 	return index, nil
 }
 
 func (cont *OrgController) GetIndex() (*index.OrgIndex, error) {
-	cont.env.logger.Debug("getting org index")
+	logger.Debug("getting org index")
 
 	orgIndexId := cont.config.Data.Index
-	cont.env.logger.Debugf("getting org index with id '%s'", orgIndexId)
+	logger.Debugf("getting org index with id '%s'", orgIndexId)
 	indexJson, err := cont.env.api.GetPrivate(cont.org.Id(), orgIndexId)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Debug("creating container for index")
+	logger.Debug("creating container for index")
 	indexContainer, err := document.NewContainer(indexJson)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Debug("verifying container")
+	logger.Debug("verifying container")
 	err = cont.org.Verify(indexContainer)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Debug("decrypting container")
+	logger.Debug("decrypting container")
 	decryptedIndexJson, err := cont.org.Decrypt(indexContainer)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Debug("creating new index struct from JSON")
+	logger.Debug("creating new index struct from JSON")
 	index, err := index.NewOrg(decryptedIndexJson)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Trace("returning index")
+	logger.Trace("returning index")
 	return index, nil
 }
 
 func (cont *OrgController) SaveIndex(index *index.OrgIndex) error {
-	cont.env.logger.Debug("saving org index")
-	cont.env.logger.Tracef("received index with id '%s'", index.Id())
+	logger.Debug("saving org index")
+	logger.Tracef("received index with id '%s'", index.Id())
 
-	cont.env.logger.Debug("encrypting and signing index for org")
+	logger.Debug("encrypting and signing index for org")
 	encryptedIndexContainer, err := cont.org.EncryptThenSignString(index.Dump(), nil)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("sending encrypted index to org")
+	logger.Debug("sending encrypted index to org")
 	err = cont.env.api.SendPrivate(cont.org.Id(), index.Data.Body.Id, encryptedIndexContainer.Dump())
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *OrgController) GetCA(id string) (*x509.CA, error) {
-	cont.env.logger.Debug("getting CA")
-	cont.env.logger.Tracef("received CA id '%s'", id)
+	logger.Debug("getting CA")
+	logger.Tracef("received CA id '%s'", id)
 
 	org := cont.env.controllers.org.org
 	caContainerJson, err := cont.env.api.GetPrivate(org.Id(), id)
@@ -307,50 +307,50 @@ func (cont *OrgController) GetCA(id string) (*x509.CA, error) {
 		return nil, err
 	}
 
-	cont.env.logger.Debug("creating CA container")
+	logger.Debug("creating CA container")
 	caContainer, err := document.NewContainer(caContainerJson)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Debug("verifying and decrypting CA container")
+	logger.Debug("verifying and decrypting CA container")
 	caJson, err := org.VerifyThenDecrypt(caContainer)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Debug("creating new CA from JSON")
+	logger.Debug("creating new CA from JSON")
 	ca, err := x509.NewCA(caJson)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Trace("returning CA")
+	logger.Trace("returning CA")
 	return ca, nil
 }
 
 func (cont *OrgController) SignCSR(node *node.Node, caId, tag string) error {
-	cont.env.logger.Debug("signing CSR for node")
-	cont.env.logger.Tracef("received node with id '%s', ca id '%s' and tag '%s'", node.Id(), caId, tag)
+	logger.Debug("signing CSR for node")
+	logger.Tracef("received node with id '%s', ca id '%s' and tag '%s'", node.Id(), caId, tag)
 
-	cont.env.logger.Debugf("popping outgoing CSr from node '%s'", node.Id())
+	logger.Debugf("popping outgoing CSr from node '%s'", node.Id())
 	csrContainerJson, err := cont.env.api.PopOutgoing(node.Data.Body.Id, "csrs")
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("creating new CSR container")
+	logger.Debug("creating new CSR container")
 	csrContainer, err := document.NewContainer(csrContainerJson)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("verifying CSR container with node")
+	logger.Debug("verifying CSR container with node")
 	if err := node.Verify(csrContainer); err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("creating CSR from JSON")
+	logger.Debug("creating CSR from JSON")
 	csrJson := csrContainer.Data.Body
 	csr, err := x509.NewCSR(csrJson)
 	if err != nil {
@@ -364,16 +364,16 @@ func (cont *OrgController) SignCSR(node *node.Node, caId, tag string) error {
 		return err
 	}
 
-	cont.env.logger.Debugf("Signing CSR with ca '%s'", caId)
+	logger.Debugf("Signing CSR with ca '%s'", caId)
 	cert, err := ca.Sign(csr, false)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("tagging certificate")
+	logger.Debug("tagging certificate")
 	cert.Data.Body.Tags = append(cert.Data.Body.Tags, tag)
 
-	cont.env.logger.Debug("creating certificate container")
+	logger.Debug("creating certificate container")
 	certContainer, err := document.NewContainer(nil)
 	if err != nil {
 		return err
@@ -383,12 +383,12 @@ func (cont *OrgController) SignCSR(node *node.Node, caId, tag string) error {
 	certContainer.Data.Options.Source = org.Id()
 	certContainer.Data.Body = cert.Dump()
 
-	cont.env.logger.Debug("signing certificate container with org")
+	logger.Debug("signing certificate container with org")
 	if err := org.Sign(certContainer); err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("pushing certificate to node")
+	logger.Debug("pushing certificate to node")
 	if err := cont.env.api.PushIncoming(node.Data.Body.Id, "certs", certContainer.Dump()); err != nil {
 		return err
 	}
@@ -406,31 +406,31 @@ func (cont *OrgController) SignCSR(node *node.Node, caId, tag string) error {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *OrgController) RegisterNextNode() error {
-	cont.env.logger.Debug("registering next node")
+	logger.Debug("registering next node")
 
 	org := cont.env.controllers.org.org
 
-	cont.env.logger.Debug("popping next registration from org")
+	logger.Debug("popping next registration from org")
 	regJson, err := cont.env.api.PopIncoming(org.Id(), "registration")
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("creating new registration container")
+	logger.Debug("creating new registration container")
 	container, err := document.NewContainer(regJson)
 	if err != nil {
-		cont.env.logger.Warn("unable to create container from registration json. Pushing back to incoming registration queue")
+		logger.Warn("unable to create container from registration json. Pushing back to incoming registration queue")
 		cont.env.api.PushIncoming(org.Id(), "registration", regJson)
 		return err
 	}
 
 	pairingId := container.Data.Options.SignatureInputs["key-id"]
-	cont.env.logger.Debugf("reading pairing key for '%s'", pairingId)
+	logger.Debugf("reading pairing key for '%s'", pairingId)
 
 	index, err := cont.GetIndex()
 	if err != nil {
@@ -439,24 +439,24 @@ func (cont *OrgController) RegisterNextNode() error {
 
 	pairingKey, ok := index.Data.Body.PairingKeys[pairingId]
 	if !ok {
-		cont.env.logger.Warn("unable to find pairing key. Pushing back to incoming registration queue")
+		logger.Warn("unable to find pairing key. Pushing back to incoming registration queue")
 		cont.env.api.PushIncoming(org.Id(), "registration", regJson)
-		cont.env.logger.Trace("returning nil error")
+		logger.Trace("returning nil error")
 		return nil
 	}
 
-	cont.env.logger.Debug("verifying and decrypting node registration")
+	logger.Debug("verifying and decrypting node registration")
 	nodeJson, err := org.VerifyAuthenticationThenDecrypt(container, pairingKey.Key)
 	if err != nil {
-		cont.env.logger.Warn("unable to decrypt node registration. Pushing back to incoming registration queue")
+		logger.Warn("unable to decrypt node registration. Pushing back to incoming registration queue")
 		cont.env.api.PushIncoming(org.Id(), "registration", regJson)
 		return err
 	}
 
-	cont.env.logger.Debug("creating new node from JSON")
+	logger.Debug("creating new node from JSON")
 	node, err := node.New(nodeJson)
 	if err != nil {
-		cont.env.logger.Warn("unable to create node. Pushing back to incoming registration queue")
+		logger.Warn("unable to create node. Pushing back to incoming registration queue")
 		cont.env.api.PushIncoming(org.Id(), "registration", regJson)
 		return err
 	}
@@ -464,25 +464,25 @@ func (cont *OrgController) RegisterNextNode() error {
 	index.AddEntityTags(node.Data.Body.Id, pairingKey.Tags)
 	index.AddNode(node.Data.Body.Name, node.Data.Body.Id)
 
-	cont.env.logger.Debug("encrypting and signing node for org")
+	logger.Debug("encrypting and signing node for org")
 	nodeContainer, err := org.EncryptThenSignString(node.Dump(), nil)
 	if err != nil {
-		cont.env.logger.Warn("unable to encrypt node for org. Pushing back to incoming registration queue")
+		logger.Warn("unable to encrypt node for org. Pushing back to incoming registration queue")
 		cont.env.api.PushIncoming(org.Id(), "registration", regJson)
 		return err
 	}
 
-	cont.env.logger.Debug("sending node to org")
+	logger.Debug("sending node to org")
 	if err := cont.env.api.SendPrivate(org.Id(), node.Data.Body.Id, nodeContainer.Dump()); err != nil {
-		cont.env.logger.Warn("Unable to send node to org. Pushing back to incoming registration queue")
+		logger.Warn("Unable to send node to org. Pushing back to incoming registration queue")
 		cont.env.api.PushIncoming(org.Id(), "registration", regJson)
 		return err
 	}
 
 	for _, tag := range pairingKey.Tags {
-		cont.env.logger.Debugf("looking for CAs for tag '%s'", tag)
+		logger.Debugf("looking for CAs for tag '%s'", tag)
 		for _, caId := range index.Data.Body.Tags.CAForward[tag] {
-			cont.env.logger.Debugf("found CA '%s'", caId)
+			logger.Debugf("found CA '%s'", caId)
 			if err := cont.SignCSR(node, caId, tag); err != nil {
 				return err
 			}
@@ -493,12 +493,12 @@ func (cont *OrgController) RegisterNextNode() error {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *OrgController) RegisterNodes() error {
-	cont.env.logger.Debug("registering nodes")
+	logger.Debug("registering nodes")
 
 	org := cont.env.controllers.org.org
 
@@ -508,7 +508,7 @@ func (cont *OrgController) RegisterNodes() error {
 			return err
 		}
 
-		cont.env.logger.Debugf("found '%d' nodes to register", size)
+		logger.Debugf("found '%d' nodes to register", size)
 
 		if size > 0 {
 			if err := cont.RegisterNextNode(); err != nil {
@@ -519,12 +519,12 @@ func (cont *OrgController) RegisterNodes() error {
 		}
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *OrgController) Init(params *OrgParams) error {
-	cont.env.logger.Debug("initialising new org")
+	logger.Debug("initialising new org")
 
 	if err := params.ValidateOrg(); err != nil {
 		return err
@@ -542,15 +542,15 @@ func (cont *OrgController) Init(params *OrgParams) error {
 		return err
 	}
 
-	cont.env.logger.Debugf("checking whether org directory '%s' exists", *params.Org)
+	logger.Debugf("checking whether org directory '%s' exists", *params.Org)
 	exists, err := cont.env.fs.local.Exists(*params.Org)
 	if err != nil {
 		return err
 	}
 
 	if exists {
-		cont.env.logger.Warnf("org directory '%s' already exists", *params.Org)
-		cont.env.logger.Trace("returning nil error")
+		logger.Warnf("org directory '%s' already exists", *params.Org)
+		logger.Trace("returning nil error")
 		return nil
 	}
 
@@ -564,18 +564,18 @@ func (cont *OrgController) Init(params *OrgParams) error {
 	}
 
 	if cont.env.controllers.admin.config.OrgExists(*params.Org) {
-		cont.env.logger.Warnf("org already exists: %s", *params.Org)
-		cont.env.logger.Trace("returnin nil error")
+		logger.Warnf("org already exists: %s", *params.Org)
+		logger.Trace("returnin nil error")
 		return nil
 	}
 
-	cont.env.logger.Debugf("creating org directory '%s' *params.Org")
+	logger.Debugf("creating org directory '%s' *params.Org")
 	if err := cont.env.fs.local.CreateDirectory(*params.Org); err != nil {
 		return err
 	}
 
 	// Make all further fs calls relative to the Org
-	cont.env.logger.Debug("changing to org directory")
+	logger.Debug("changing to org directory")
 	if err := cont.env.fs.local.ChangeToDirectory(*params.Org); err != nil {
 		return err
 	}
@@ -638,13 +638,13 @@ func (cont *OrgController) Init(params *OrgParams) error {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *OrgController) List(params *OrgParams) ([]*entity.Entity, error) {
-	cont.env.logger.Debug("listing orgs")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("listing orgs")
+	logger.Tracef("received params: %s", params)
 
 	var err error
 	if err := cont.env.LoadHomeFs(); err != nil {
@@ -674,37 +674,37 @@ func (cont *OrgController) List(params *OrgParams) ([]*entity.Entity, error) {
 		orgs = append(orgs, o)
 	}
 
-	cont.env.logger.Trace("returnings orgs")
+	logger.Trace("returnings orgs")
 	return orgs, nil
 }
 
 func (cont *OrgController) Show(params *OrgParams) (*entity.Entity, error) {
-	cont.env.logger.Debug("showing org")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("showing org")
+	logger.Tracef("received params: %s", params)
 
 	if err := cont.env.LoadAdminEnv(); err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Trace("returning org")
+	logger.Trace("returning org")
 	return cont.env.controllers.org.org, nil
 }
 
 func (cont *OrgController) RunEnv(params *OrgParams) error {
-	cont.env.logger.Debug("running org tasks")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("running org tasks")
+	logger.Tracef("received params: %s", params)
 
 	if err := cont.RegisterNodes(); err != nil {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *OrgController) Run(params *OrgParams) error {
-	cont.env.logger.Debug("running org tasks")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("running org tasks")
+	logger.Tracef("received params: %s", params)
 
 	if err := cont.env.LoadAdminEnv(); err != nil {
 		return err
@@ -717,13 +717,13 @@ func (cont *OrgController) Run(params *OrgParams) error {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil err")
+	logger.Trace("returning nil err")
 	return nil
 }
 
 func (cont *OrgController) Delete(params *OrgParams) error {
-	cont.env.logger.Debug("deleting org")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("deleting org")
+	logger.Tracef("received params: %s", params)
 
 	return fmt.Errorf("Not implemented")
 }

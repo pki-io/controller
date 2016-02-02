@@ -41,7 +41,7 @@ func (cont *NodeController) CreateNode(name string) (*node.Node, error) {
 	node.Data.Body.Name = name
 	node.Data.Body.Id = x509.NewID()
 
-	cont.env.logger.Debug("Generating node keys")
+	logger.Debug("Generating node keys")
 	if err := node.GenerateKeys(); err != nil {
 		return nil, err
 	}
@@ -54,8 +54,8 @@ func (cont *NodeController) SecureSendPrivateToOrg(id, key string) error {
 }
 
 func (cont *NodeController) SecureSendStringToOrg(json, id, key string) error {
-	cont.env.logger.Debug("encrypting data for org")
-	cont.env.logger.Tracef("received json [NOT LOGGED] with pairing id '%s' and key [NOT LOGGED]", id)
+	logger.Debug("encrypting data for org")
+	logger.Tracef("received json [NOT LOGGED] with pairing id '%s' and key [NOT LOGGED]", id)
 
 	org := cont.env.controllers.org.org
 	container, err := org.EncryptThenAuthenticateString(json, id, key)
@@ -63,17 +63,17 @@ func (cont *NodeController) SecureSendStringToOrg(json, id, key string) error {
 		return err
 	}
 
-	cont.env.logger.Debug("pushing container to org with id '%s'", org.Id())
+	logger.Debug("pushing container to org with id '%s'", org.Id())
 	if err := cont.env.api.PushIncoming(org.Id(), "registration", container.Dump()); err != nil {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *NodeController) CreateIndex() (*index.NodeIndex, error) {
-	cont.env.logger.Debug("creating node index")
+	logger.Debug("creating node index")
 
 	index, err := index.NewNode(nil)
 	if err != nil {
@@ -81,38 +81,38 @@ func (cont *NodeController) CreateIndex() (*index.NodeIndex, error) {
 	}
 
 	index.Data.Body.Id = x509.NewID()
-	cont.env.logger.Debugf("created index with id '%s'", index.Id())
+	logger.Debugf("created index with id '%s'", index.Id())
 
-	cont.env.logger.Trace("returning index")
+	logger.Trace("returning index")
 	return index, nil
 }
 
 func (cont *NodeController) SaveIndex(index *index.NodeIndex) error {
 
-	cont.env.logger.Debug("saving index")
-	cont.env.logger.Tracef("received index with id '%s'", index.Data.Body.Id)
+	logger.Debug("saving index")
+	logger.Tracef("received index with id '%s'", index.Data.Body.Id)
 
-	cont.env.logger.Debug("encrypting and signing index for node")
+	logger.Debug("encrypting and signing index for node")
 	encryptedIndexContainer, err := cont.node.EncryptThenSignString(index.Dump(), nil)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("sending index")
+	logger.Debug("sending index")
 	if err := cont.env.api.SendPrivate(cont.node.Id(), index.Data.Body.Id, encryptedIndexContainer.Dump()); err != nil {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *NodeController) LoadConfig() error {
-	cont.env.logger.Debug("loading node config")
+	logger.Debug("loading node config")
 	var err error
 
 	if cont.config == nil {
-		cont.env.logger.Debug("creating empty config")
+		logger.Debug("creating empty config")
 		cont.config, err = config.NewNode()
 		if err != nil {
 			return err
@@ -125,43 +125,43 @@ func (cont *NodeController) LoadConfig() error {
 	}
 
 	if exists {
-		cont.env.logger.Debugf("reading local file '%s'", NodeConfigFile)
+		logger.Debugf("reading local file '%s'", NodeConfigFile)
 		nodeConfig, err := cont.env.fs.local.Read(NodeConfigFile)
 		if err != nil {
 			return err
 		}
 
-		cont.env.logger.Debug("loading config")
+		logger.Debug("loading config")
 		if err := cont.config.Load(nodeConfig); err != nil {
 			return err
 		}
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *NodeController) SaveConfig() error {
-	cont.env.logger.Debug("saving node config")
+	logger.Debug("saving node config")
 
-	cont.env.logger.Debug("dumping config")
+	logger.Debug("dumping config")
 	cfgString, err := cont.config.Dump()
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debugf("writing config to local file '%s'", NodeConfigFile)
+	logger.Debugf("writing config to local file '%s'", NodeConfigFile)
 	if err := cont.env.fs.local.Write(NodeConfigFile, cfgString); err != nil {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *NodeController) GetNode(name string) (*node.Node, error) {
-	cont.env.logger.Debug("getting node")
-	cont.env.logger.Tracef("received name '%s'", name)
+	logger.Debug("getting node")
+	logger.Tracef("received name '%s'", name)
 
 	org := cont.env.controllers.org.org
 
@@ -175,39 +175,39 @@ func (cont *NodeController) GetNode(name string) (*node.Node, error) {
 		return nil, err
 	}
 
-	cont.env.logger.Debugf("getting node '%s' from org", nodeId)
+	logger.Debugf("getting node '%s' from org", nodeId)
 	nodeContainerJson, err := cont.env.api.GetPrivate(org.Id(), nodeId)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Debug("creating new node container")
+	logger.Debug("creating new node container")
 	nodeContainer, err := document.NewContainer(nodeContainerJson)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Debug("verifying and decrypting node container")
+	logger.Debug("verifying and decrypting node container")
 	nodeJson, err := org.VerifyThenDecrypt(nodeContainer)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Debug("creating new node struct")
+	logger.Debug("creating new node struct")
 	n, err := node.New(nodeJson)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Trace("returning node")
+	logger.Trace("returning node")
 	return n, nil
 }
 
 func (cont *NodeController) SaveNode() error {
-	cont.env.logger.Debug("saving node")
+	logger.Debug("saving node")
 	id := cont.node.Data.Body.Id
 
-	cont.env.logger.Debugf("saving private node '%s' to home", id)
+	logger.Debugf("saving private node '%s' to home", id)
 	if err := cont.env.fs.home.Write(id, cont.node.Dump()); err != nil {
 		return err
 	}
@@ -216,86 +216,86 @@ func (cont *NodeController) SaveNode() error {
 }
 
 func (cont *NodeController) ProcessNextCert() error {
-	cont.env.logger.Debug("processing next certificate")
+	logger.Debug("processing next certificate")
 
-	cont.env.logger.Debug("getting next incoming certificate JSON")
+	logger.Debug("getting next incoming certificate JSON")
 	certContainerJson, err := cont.env.api.PopIncoming(cont.node.Data.Body.Id, "certs")
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("creating certificate container from JSON")
+	logger.Debug("creating certificate container from JSON")
 	certContainer, err := document.NewContainer(certContainerJson)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("verifying container is signed by org")
+	logger.Debug("verifying container is signed by org")
 	if err := cont.env.controllers.org.org.Verify(certContainer); err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("creating new certificate struct")
+	logger.Debug("creating new certificate struct")
 	cert, err := x509.NewCertificate(certContainer.Data.Body)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debugf("getting matching CSR for id '%s'", cert.Data.Body.Id)
+	logger.Debugf("getting matching CSR for id '%s'", cert.Data.Body.Id)
 	csrContainerJson, err := cont.env.api.GetPrivate(cont.node.Data.Body.Id, cert.Data.Body.Id)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("creating CSR container")
+	logger.Debug("creating CSR container")
 	csrContainer, err := document.NewContainer(csrContainerJson)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("verifying and decryping CSR container")
+	logger.Debug("verifying and decryping CSR container")
 	csrJson, err := cont.node.VerifyThenDecrypt(csrContainer)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("creating CSR struct from JSON")
+	logger.Debug("creating CSR struct from JSON")
 	csr, err := x509.NewCSR(csrJson)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("setting new ID for certificate")
+	logger.Debug("setting new ID for certificate")
 	cert.Data.Body.Id = x509.NewID()
 
-	cont.env.logger.Debug("setting certificate private key from CSR")
+	logger.Debug("setting certificate private key from CSR")
 	cert.Data.Body.PrivateKey = csr.Data.Body.PrivateKey
 
-	cont.env.logger.Debug("encrypting and signing certificate for node")
+	logger.Debug("encrypting and signing certificate for node")
 	updatedCertContainer, err := cont.node.EncryptThenSignString(cert.Dump(), nil)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("saving encrypted certificate for node")
+	logger.Debug("saving encrypted certificate for node")
 	if err := cont.env.api.SendPrivate(cont.node.Data.Body.Id, cert.Data.Body.Id, updatedCertContainer.Dump()); err != nil {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *NodeController) ProcessCerts() error {
-	cont.env.logger.Debug("processing node certificates")
+	logger.Debug("processing node certificates")
 
 	for {
-		cont.env.logger.Debug("getting number of incoming certificates")
+		logger.Debug("getting number of incoming certificates")
 		size, err := cont.env.api.IncomingSize(cont.node.Data.Body.Id, "certs")
 		if err != nil {
 			return err
 		}
-		cont.env.logger.Debugf("found %d certificates to process", size)
+		logger.Debugf("found %d certificates to process", size)
 
 		if size > 0 {
 			if err := cont.ProcessNextCert(); err != nil {
@@ -306,19 +306,19 @@ func (cont *NodeController) ProcessCerts() error {
 		}
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *NodeController) CreateCSRs() error {
-	cont.env.logger.Debug("creating CSRs")
+	logger.Debug("creating CSRs")
 
-	cont.env.logger.Debug("getting number of outgoing CSRs")
+	logger.Debug("getting number of outgoing CSRs")
 	numCSRs, err := cont.env.api.OutgoingSize(cont.node.Data.Body.Id, "csrs")
 	if err != nil {
 		return err
 	}
-	cont.env.logger.Debugf("found '%d' CSRs", numCSRs)
+	logger.Debugf("found '%d' CSRs", numCSRs)
 
 	for i := 0; i < MinCSRs-numCSRs; i++ {
 		if err := cont.NewCSR(); err != nil {
@@ -326,12 +326,12 @@ func (cont *NodeController) CreateCSRs() error {
 		}
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *NodeController) NewCSR() error {
-	cont.env.logger.Debug("creating new CSR")
+	logger.Debug("creating new CSR")
 
 	csr, err := x509.NewCSR(nil)
 	if err != nil {
@@ -343,41 +343,41 @@ func (cont *NodeController) NewCSR() error {
 	subject := pkix.Name{CommonName: csr.Data.Body.Name}
 	csr.Generate(&subject)
 
-	cont.env.logger.Debug("creating encrypted CSR container")
+	logger.Debug("creating encrypted CSR container")
 	csrContainer, err := cont.node.EncryptThenSignString(csr.Dump(), nil)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("saving node CSR")
+	logger.Debug("saving node CSR")
 	if err := cont.env.api.SendPrivate(cont.node.Data.Body.Id, csr.Data.Body.Id, csrContainer.Dump()); err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("getting public CSR")
+	logger.Debug("getting public CSR")
 	csrPublic, err := csr.Public()
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("signing public CSR as node")
+	logger.Debug("signing public CSR as node")
 	csrPublicContainer, err := cont.node.SignString(csrPublic.Dump())
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("putting public CSR in outgoing queue")
+	logger.Debug("putting public CSR in outgoing queue")
 	if err := cont.env.api.PushOutgoing(cont.node.Data.Body.Id, "csrs", csrPublicContainer.Dump()); err != nil {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *NodeController) Init(params *NodeParams) (*document.Container, error) {
 
-	cont.env.logger.Debug("initialising new node")
+	logger.Debug("initialising new node")
 
 	if err := params.ValidateName(true); err != nil {
 		return nil, err
@@ -395,7 +395,7 @@ func (cont *NodeController) Init(params *NodeParams) (*document.Container, error
 		return nil, err
 	}
 
-	cont.env.logger.Debugf("checking whether org directory '%s' exists", *params.OrgId)
+	logger.Debugf("checking whether org directory '%s' exists", *params.OrgId)
 	exists, err := cont.env.fs.local.Exists(*params.OrgId)
 	if err != nil {
 		return nil, err
@@ -413,13 +413,13 @@ func (cont *NodeController) Init(params *NodeParams) (*document.Container, error
 		return nil, fmt.Errorf("org already exists: %s", *params.OrgId)
 	}
 
-	cont.env.logger.Debugf("creating org directory '%s'", *params.OrgId)
+	logger.Debugf("creating org directory '%s'", *params.OrgId)
 	if err := cont.env.fs.local.CreateDirectory(*params.OrgId); err != nil {
 		return nil, err
 	}
 
 	// Make all further fs calls relative to the Org
-	cont.env.logger.Debug("changing to org directory")
+	logger.Debug("changing to org directory")
 	if err := cont.env.fs.local.ChangeToDirectory(*params.OrgId); err != nil {
 		return nil, err
 	}
@@ -456,7 +456,7 @@ func (cont *NodeController) Init(params *NodeParams) (*document.Container, error
 		return nil, err
 	}
 
-	cont.env.logger.Debug("securing node data")
+	logger.Debug("securing node data")
 	container, err := cont.node.EncryptThenAuthenticateString(cont.node.DumpPublic(), *params.PairingId, *params.PairingKey)
 	if err != nil {
 		return nil, err
@@ -472,7 +472,7 @@ func (cont *NodeController) CreateLocalNode(name, pairingId, pairingKey string) 
 		return nil, err
 	}
 
-	cont.env.logger.Debugf("sending registration to org with pairing id '%s'", pairingId)
+	logger.Debugf("sending registration to org with pairing id '%s'", pairingId)
 	if err := cont.SecureSendPrivateToOrg(pairingId, pairingKey); err != nil {
 		return nil, err
 	}
@@ -538,8 +538,8 @@ func (cont *NodeController) CreateRemoteNode(params *NodeParams) (*node.Node, er
 }
 
 func (cont *NodeController) New(params *NodeParams) (*node.Node, error) {
-	cont.env.logger.Debug("creating new new")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("creating new new")
+	logger.Tracef("received params: %s", params)
 
 	if err := params.ValidateName(true); err != nil {
 		return nil, err
@@ -583,8 +583,8 @@ func (cont *NodeController) New(params *NodeParams) (*node.Node, error) {
 }
 
 func (cont *NodeController) Run(params *NodeParams) error {
-	cont.env.logger.Debug("running node tasks")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("running node tasks")
+	logger.Tracef("received params: %s", params)
 
 	var err error
 
@@ -605,19 +605,19 @@ func (cont *NodeController) Run(params *NodeParams) error {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *NodeController) Cert(params *NodeParams) error {
-	cont.env.logger.Debug("getting certificates for node")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("getting certificates for node")
+	logger.Tracef("received params: %s", params)
 	return fmt.Errorf("not implemented")
 }
 
 func (cont *NodeController) List(params *NodeParams) ([]*node.Node, error) {
-	cont.env.logger.Debug("listing nodes")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("listing nodes")
+	logger.Tracef("received params: %s", params)
 
 	if err := cont.env.LoadAdminEnv(); err != nil {
 		return nil, err
@@ -637,13 +637,13 @@ func (cont *NodeController) List(params *NodeParams) ([]*node.Node, error) {
 		nodes = append(nodes, node)
 	}
 
-	cont.env.logger.Trace("returning nodes")
+	logger.Trace("returning nodes")
 	return nodes, nil
 }
 
 func (cont *NodeController) Show(params *NodeParams) (*node.Node, error) {
-	cont.env.logger.Debug("showing node")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("showing node")
+	logger.Tracef("received params: %s", params)
 	var err error
 
 	if err := params.ValidateName(true); err != nil {
@@ -659,12 +659,12 @@ func (cont *NodeController) Show(params *NodeParams) (*node.Node, error) {
 		return nil, err
 	}
 
-	cont.env.logger.Trace("returning node")
+	logger.Trace("returning node")
 	return cont.node, nil
 }
 
 func (cont *NodeController) Delete(params *NodeParams) error {
-	cont.env.logger.Debug("deleting node")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("deleting node")
+	logger.Tracef("received params: %s", params)
 	return fmt.Errorf("Not implemented")
 }

@@ -2,15 +2,13 @@
 package controller
 
 import (
-	log "github.com/cihub/seelog"
 	"github.com/pki-io/core/api"
 	"github.com/pki-io/core/fs"
 	"os"
 )
 
 type Environment struct {
-	logger log.LoggerInterface
-	fs     struct {
+	fs struct {
 		local *fs.Local
 		home  *fs.Home
 	}
@@ -22,19 +20,18 @@ type Environment struct {
 	}
 }
 
-func NewEnvironment(logger log.LoggerInterface) *Environment {
+func NewEnvironment() *Environment {
 	env := new(Environment)
-	env.logger = logger
 	return env
 }
 
 func (env *Environment) Fatal(err error) {
-	env.logger.Critical(err)
+	logger.Critical(err)
 	os.Exit(1)
 }
 
 func (env *Environment) LoadLocalFs() error {
-	env.logger.Debug("loading local file system")
+	logger.Debug("loading local file system")
 	var err error
 	env.fs.local, err = fs.NewLocal(os.Getenv("PKIIO_LOCAL"))
 	if err != nil {
@@ -44,7 +41,7 @@ func (env *Environment) LoadLocalFs() error {
 }
 
 func (env *Environment) LoadHomeFs() error {
-	env.logger.Debug("loading home file system")
+	logger.Debug("loading home file system")
 	var err error
 	if env.fs.home, err = fs.NewHome(os.Getenv("PKIIO_HOME")); err != nil {
 		return err
@@ -53,7 +50,7 @@ func (env *Environment) LoadHomeFs() error {
 }
 
 func (env *Environment) LoadAPI() error {
-	env.logger.Debug("loading API")
+	logger.Debug("loading API")
 	var err error
 	if env.api, err = fs.NewAPI(env.fs.local.Path); err != nil {
 		return err
@@ -65,10 +62,10 @@ func (env *Environment) LoadAPI() error {
 // It loads public org for App:Org
 
 func (env *Environment) LoadPublicOrg() error {
-	env.logger.Debug("loading public org")
+	logger.Debug("loading public org")
 	var err error
 
-	env.logger.Debug("initializing org controller")
+	logger.Debug("initializing org controller")
 	if env.controllers.org == nil {
 		if env.controllers.org, err = NewOrg(env); err != nil {
 			return err
@@ -89,19 +86,19 @@ func (env *Environment) LoadPublicOrg() error {
 /*func (env *Environment) LoadPublicNodeOrg() error {
 	var err error
 
-	env.logger.Debug("Initializing node controller")
+	logger.Debug("Initializing node controller")
 	if env.controllers.node == nil {
 		if env.controllers.node, err = NewNodeController(env); err != nil {
 			return err
 		}
 	}
 
-	env.logger.Debug("Loading node config")
+	logger.Debug("Loading node config")
 	if err := env.controllers.node.LoadConfig(); err != nil {
 		return err
 	}
 
-	env.logger.Debug("Loading public org")
+	logger.Debug("Loading public org")
 	if err := env.controllers.node.LoadPublicOrg(); err != nil {
 		return err
 	}
@@ -113,7 +110,7 @@ func (env *Environment) LoadPublicOrg() error {
 // It loads private org for App:Org
 
 func (env *Environment) LoadPrivateOrg() error {
-	env.logger.Debug("loading private org")
+	logger.Debug("loading private org")
 
 	var err error
 	if env.controllers.org == nil {
@@ -138,7 +135,7 @@ func (env *Environment) LoadPrivateOrg() error {
 // It loads admin config and entity for App:Admin
 
 func (env *Environment) LoadAdmin() error {
-	env.logger.Debug("loading admin")
+	logger.Debug("loading admin")
 
 	var err error
 	if env.controllers.admin == nil {
@@ -163,7 +160,7 @@ func (env *Environment) LoadAdmin() error {
 // It loads admin environment for App:Admin
 
 func (env *Environment) LoadAdminEnv() error {
-	env.logger.Debug("loading admin environment")
+	logger.Debug("loading admin environment")
 
 	if err := env.LoadLocalFs(); err != nil {
 		return err
@@ -193,7 +190,7 @@ func (env *Environment) LoadAdminEnv() error {
 }
 
 func (env *Environment) LoadNodeEnv() error {
-	env.logger.Debug("loading node environment")
+	logger.Debug("loading node environment")
 
 	if err := env.LoadLocalFs(); err != nil {
 		return err

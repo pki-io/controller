@@ -22,22 +22,22 @@ func NewCertificate(env *Environment) (*CertificateController, error) {
 }
 
 func (cont *CertificateController) GetCA(caId string) (*x509.CA, error) {
-	cont.env.logger.Debug("getting CA")
-	cont.env.logger.Tracef("received CA id '%s'", caId)
+	logger.Debug("getting CA")
+	logger.Tracef("received CA id '%s'", caId)
 
-	cont.env.logger.Debug("creating new CA controller")
+	logger.Debug("creating new CA controller")
 	caCont, err := NewCA(cont.env)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Debug("returning CA")
+	logger.Debug("returning CA")
 	return caCont.GetCA(caId)
 }
 
 func (cont *CertificateController) ResetCertTags(certId, tags string) error {
-	cont.env.logger.Debug("resetting certificate tags")
-	cont.env.logger.Tracef("received certificate id '%s' and tags '%s'", certId, tags)
+	logger.Debug("resetting certificate tags")
+	logger.Tracef("received certificate id '%s' and tags '%s'", certId, tags)
 
 	orgIndex, err := cont.env.controllers.org.GetIndex()
 	if err != nil {
@@ -58,65 +58,65 @@ func (cont *CertificateController) ResetCertTags(certId, tags string) error {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *CertificateController) GetCert(id string) (*x509.Certificate, error) {
-	cont.env.logger.Debug("getting certificate")
-	cont.env.logger.Tracef("received certificate id '%s'", id)
+	logger.Debug("getting certificate")
+	logger.Tracef("received certificate id '%s'", id)
 
-	cont.env.logger.Debugf("getting private file '%s' from org", id)
+	logger.Debugf("getting private file '%s' from org", id)
 	certContainerJson, err := cont.env.api.GetPrivate(cont.env.controllers.org.org.Data.Body.Id, id)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Debug("creating new container")
+	logger.Debug("creating new container")
 	certContainer, err := document.NewContainer(certContainerJson)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Debug("decrypting container")
+	logger.Debug("decrypting container")
 	certJson, err := cont.env.controllers.org.org.VerifyThenDecrypt(certContainer)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Debug("loading certificate json")
+	logger.Debug("loading certificate json")
 	cert, err := x509.NewCertificate(certJson)
 	if err != nil {
 		return nil, err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return cert, nil
 }
 
 func (cont *CertificateController) SaveCert(cert *x509.Certificate) error {
-	cont.env.logger.Debug("saving certificate")
-	cont.env.logger.Tracef("received certificate with id '%s'", cert.Id())
+	logger.Debug("saving certificate")
+	logger.Tracef("received certificate with id '%s'", cert.Id())
 
-	cont.env.logger.Debug("encrypting cert for org")
+	logger.Debug("encrypting cert for org")
 	certContainer, err := cont.env.controllers.org.org.EncryptThenSignString(cert.Dump(), nil)
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Debug("saving encrypted cert")
+	logger.Debug("saving encrypted cert")
 	err = cont.env.api.SendPrivate(cont.env.controllers.org.org.Data.Body.Id, cert.Data.Body.Id, certContainer.Dump())
 	if err != nil {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *CertificateController) AddCertToOrgIndex(cert *x509.Certificate, tags string) error {
-	cont.env.logger.Debug("adding certificate to org index")
-	cont.env.logger.Tracef("received certificate with id '%s' and tags '%s'", cert.Id(), tags)
+	logger.Debug("adding certificate to org index")
+	logger.Tracef("received certificate with id '%s' and tags '%s'", cert.Id(), tags)
 
 	orgIndex, err := cont.env.controllers.org.GetIndex()
 	if err != nil {
@@ -138,13 +138,13 @@ func (cont *CertificateController) AddCertToOrgIndex(cert *x509.Certificate, tag
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *CertificateController) New(params *CertificateParams) (*x509.Certificate, *x509.CA, error) {
-	cont.env.logger.Debug("creating new certificate")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("creating new certificate")
+	logger.Tracef("received params: %s", params)
 
 	if err := params.ValidateName(true); err != nil {
 		return nil, nil, err
@@ -179,7 +179,7 @@ func (cont *CertificateController) New(params *CertificateParams) (*x509.Certifi
 		subject.PostalCode = []string{*params.DnPostal}
 	}
 
-	cont.env.logger.Debug("creating certificate struct")
+	logger.Debug("creating certificate struct")
 	cert, err := x509.NewCertificate(nil)
 	if err != nil {
 		return nil, nil, err
@@ -192,7 +192,7 @@ func (cont *CertificateController) New(params *CertificateParams) (*x509.Certifi
 
 	if *params.CertFile == "" && *params.KeyFile == "" {
 		cert.Data.Body.KeyType = *params.KeyType
-		cont.env.logger.Debug("generating certificate and key")
+		logger.Debug("generating certificate and key")
 		if *params.Ca == "" {
 			if err := cert.Generate(nil, &subject); err != nil {
 				return nil, nil, err
@@ -213,7 +213,7 @@ func (cont *CertificateController) New(params *CertificateParams) (*x509.Certifi
 				return nil, nil, err
 			}
 
-			cont.env.logger.Debugf("generating certificate and signing with CA '%s'", caId)
+			logger.Debugf("generating certificate and signing with CA '%s'", caId)
 			if err := cert.Generate(ca, &subject); err != nil {
 				return nil, nil, err
 			}
@@ -223,24 +223,24 @@ func (cont *CertificateController) New(params *CertificateParams) (*x509.Certifi
 			return nil, nil, fmt.Errorf("certificate PEM file must be provided if importing")
 		}
 
-		cont.env.logger.Debugf("importing certificate from '%s'", *params.CertFile)
+		logger.Debugf("importing certificate from '%s'", *params.CertFile)
 		ok, err := fs.Exists(*params.CertFile)
 		if err != nil {
 			return nil, nil, err
 		}
 
 		if !ok {
-			cont.env.logger.Warnf("certificate file '%s' does not exist", *params.CertFile)
+			logger.Warnf("certificate file '%s' does not exist", *params.CertFile)
 			return nil, nil, nil
 		}
 
-		cont.env.logger.Debug("reading certificate from file")
+		logger.Debug("reading certificate from file")
 		certPem, err := fs.ReadFile(*params.CertFile)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		cont.env.logger.Debug("decoding certificate PEM")
+		logger.Debug("decoding certificate PEM")
 		importCert, err := x509.PemDecodeX509Certificate([]byte(certPem))
 		if err != nil {
 			return nil, nil, err
@@ -252,30 +252,30 @@ func (cont *CertificateController) New(params *CertificateParams) (*x509.Certifi
 		cert.Data.Body.Expiry = certExpiry
 
 		if *params.KeyFile != "" {
-			cont.env.logger.Debugf("importing certificate privte key from '%s'", *params.KeyFile)
+			logger.Debugf("importing certificate privte key from '%s'", *params.KeyFile)
 			ok, err := fs.Exists(*params.KeyFile)
 			if err != nil {
 				return nil, nil, err
 			}
 
 			if !ok {
-				cont.env.logger.Warnf("key file '%s' does not exist", *params.KeyFile)
+				logger.Warnf("key file '%s' does not exist", *params.KeyFile)
 				return nil, nil, nil
 			}
 
-			cont.env.logger.Debug("reading private key file")
+			logger.Debug("reading private key file")
 			keyPem, err := fs.ReadFile(*params.KeyFile)
 			if err != nil {
 				return nil, nil, err
 			}
 
-			cont.env.logger.Debug("decoding private key PEM")
+			logger.Debug("decoding private key PEM")
 			key, err := crypto.PemDecodePrivate([]byte(keyPem))
 			if err != nil {
 				return nil, nil, err
 			}
 
-			cont.env.logger.Debug("getting key type")
+			logger.Debug("getting key type")
 			keyType, err := crypto.GetKeyType(key)
 			if err != nil {
 				return nil, nil, err
@@ -305,13 +305,13 @@ func (cont *CertificateController) New(params *CertificateParams) (*x509.Certifi
 		}
 	}
 
-	cont.env.logger.Trace("returning certificate")
+	logger.Trace("returning certificate")
 	return cert, ca, nil
 }
 
 func (cont *CertificateController) List(params *CertificateParams) ([]*x509.Certificate, error) {
-	cont.env.logger.Debug("listing certificates")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("listing certificates")
+	logger.Tracef("received params: %s", params)
 
 	if err := cont.env.LoadAdminEnv(); err != nil {
 		return nil, err
@@ -332,13 +332,13 @@ func (cont *CertificateController) List(params *CertificateParams) ([]*x509.Cert
 		certs = append(certs, cert)
 	}
 
-	cont.env.logger.Trace("returning certificates")
+	logger.Trace("returning certificates")
 	return certs, nil
 }
 
 func (cont *CertificateController) Show(params *CertificateParams) (*x509.Certificate, error) {
-	cont.env.logger.Debug("showing certificate")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("showing certificate")
+	logger.Tracef("received params: %s", params)
 
 	if err := params.ValidateName(true); err != nil {
 		return nil, err
@@ -371,13 +371,13 @@ func (cont *CertificateController) Show(params *CertificateParams) (*x509.Certif
 		return nil, err
 	}
 
-	cont.env.logger.Debug("returning certificate")
+	logger.Debug("returning certificate")
 	return cert, nil
 }
 
 func (cont *CertificateController) Update(params *CertificateParams) error {
-	cont.env.logger.Debug("updating certificate")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("updating certificate")
+	logger.Tracef("received params: %s", params)
 
 	if err := params.ValidateName(true); err != nil {
 		return err
@@ -408,11 +408,11 @@ func (cont *CertificateController) Update(params *CertificateParams) error {
 			return err
 		}
 		if !ok {
-			cont.env.logger.Warnf("certificate file '%s' does not exist", *params.CertFile)
+			logger.Warnf("certificate file '%s' does not exist", *params.CertFile)
 			return nil
 		}
 
-		cont.env.logger.Debugf("reading certificate file '%s'", *params.CertFile)
+		logger.Debugf("reading certificate file '%s'", *params.CertFile)
 
 		certPem, err := fs.ReadFile(*params.CertFile)
 		if err != nil {
@@ -420,7 +420,7 @@ func (cont *CertificateController) Update(params *CertificateParams) error {
 		}
 
 		// TODO - better validation of pem
-		cont.env.logger.Debug("decoding certificate file PEM")
+		logger.Debug("decoding certificate file PEM")
 		_, err = x509.PemDecodeX509Certificate([]byte(certPem))
 		if err != nil {
 			return err
@@ -435,24 +435,24 @@ func (cont *CertificateController) Update(params *CertificateParams) error {
 			return err
 		}
 		if !ok {
-			cont.env.logger.Warnf("key file '%s' does not exist", *params.KeyFile)
+			logger.Warnf("key file '%s' does not exist", *params.KeyFile)
 			return nil
 		}
 
-		cont.env.logger.Debugf("reading key file '%s'", *params.KeyFile)
+		logger.Debugf("reading key file '%s'", *params.KeyFile)
 
 		keyPem, err := fs.ReadFile(*params.KeyFile)
 		if err != nil {
 			return err
 		}
 
-		cont.env.logger.Debug("decoding key file PEM")
+		logger.Debug("decoding key file PEM")
 		key, err := crypto.PemDecodePrivate([]byte(keyPem))
 		if err != nil {
 			return err
 		}
 
-		cont.env.logger.Debug("getting key type")
+		logger.Debug("getting key type")
 		keyType, err := crypto.GetKeyType(key)
 		if err != nil {
 			return err
@@ -471,13 +471,13 @@ func (cont *CertificateController) Update(params *CertificateParams) error {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
 
 func (cont *CertificateController) Delete(params *CertificateParams) error {
-	cont.env.logger.Debug("deleting certificate")
-	cont.env.logger.Tracef("received params: %s", params)
+	logger.Debug("deleting certificate")
+	logger.Tracef("received params: %s", params)
 
 	if err := params.ValidateName(true); err != nil {
 		return err
@@ -501,7 +501,7 @@ func (cont *CertificateController) Delete(params *CertificateParams) error {
 		return err
 	}
 
-	cont.env.logger.Debugf("removing certificate file '%s'", certId)
+	logger.Debugf("removing certificate file '%s'", certId)
 	if err := cont.env.api.DeletePrivate(cont.env.controllers.org.OrgId(), certId); err != nil {
 		return err
 	}
@@ -515,6 +515,6 @@ func (cont *CertificateController) Delete(params *CertificateParams) error {
 		return err
 	}
 
-	cont.env.logger.Trace("returning nil error")
+	logger.Trace("returning nil error")
 	return nil
 }
