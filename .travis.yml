@@ -15,13 +15,6 @@ before_install:
   - if ! go get code.google.com/p/go.tools/cmd/cover; then go get golang.org/x/tools/cmd/cover; fi
 script:
   - make get-deps
-  - fdm test -coverprofile=config.coverprofile ./config
-  - fdm test -coverprofile=crypto.coverprofile ./crypto
-  - fdm test -coverprofile=document.coverprofile ./document
-  - fdm test -coverprofile=entity.coverprofile ./entity
-  - fdm test -coverprofile=fs.coverprofile ./fs
-  - fdm test -coverprofile=index.coverprofile ./index
-  - fdm test -coverprofile=node.coverprofile ./node
-  - fdm test -coverprofile=x509.coverprofile ./x509
+  - fdm test -coverprofile=controller.coverprofile ./
   - gover
   - goveralls -coverprofile=gover.coverprofile -service travis-ci
